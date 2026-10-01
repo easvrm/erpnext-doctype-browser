@@ -1,4 +1,4 @@
-<title>Carte des DocTypes ERPNext</title>
+<title>ERPNext DocType Map</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: sidebar of modules | force-directed diagram | detail panel. Phone: stacked. */
@@ -99,9 +99,9 @@ textarea.out{width:100%;height:120px;font-family:var(--mono);font-size:11px;back
 <div class="app">
   <aside>
     <div class="head">
-      <h1>Carte des DocTypes</h1>
+      <h1>DocType Map</h1>
       <p class="sub" id="stats"></p>
-      <input id="q" class="search" type="search" placeholder="Rechercher un module ou un DocType" autocomplete="off">
+      <input id="q" class="search" type="search" placeholder="Search a module or DocType" autocomplete="off">
       <select id="modsel" class="modsel" aria-label="Module"></select>
     </div>
     <div class="scroll" id="list"></div>
@@ -109,14 +109,14 @@ textarea.out{width:100%;height:120px;font-family:var(--mono);font-size:11px;back
   <main>
     <div class="bar">
       <div class="title" id="title"></div>
-      <label class="chk" for="o-ext"><input type="checkbox" id="o-ext">Voisins d'autres modules</label>
-      <label class="chk" for="o-hub"><input type="checkbox" id="o-hub" checked>Masquer les hubs</label>
-      <label class="chk" for="o-child"><input type="checkbox" id="o-child" checked>Tables enfants</label>
-      <button class="btn" id="fit" type="button">Recentrer</button>
-      <button class="btn" id="mmd" type="button">Copier en Mermaid</button>
+      <label class="chk" for="o-ext"><input type="checkbox" id="o-ext">Neighbors from other modules</label>
+      <label class="chk" for="o-hub"><input type="checkbox" id="o-hub" checked>Hide hubs</label>
+      <label class="chk" for="o-child"><input type="checkbox" id="o-child" checked>Child tables</label>
+      <button class="btn" id="fit" type="button">Fit view</button>
+      <button class="btn" id="mmd" type="button">Copy as Mermaid</button>
     </div>
     <div class="stage" id="stage">
-      <svg id="svg" role="img" aria-label="Diagramme de relations entre DocTypes">
+      <svg id="svg" role="img" aria-label="DocType relationship diagram">
         <defs>
           <marker id="ah-l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-l" d="M0 0L10 5L0 10z"/></marker>
           <marker id="ah-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-t" d="M0 0L10 5L0 10z"/></marker>
@@ -124,14 +124,14 @@ textarea.out{width:100%;height:120px;font-family:var(--mono);font-size:11px;back
         <g id="vp"><g id="edges"></g><g id="nodes"></g></g>
       </svg>
       <div class="legend">
-        <span><i></i>Link</span><span><i class="t"></i>Table enfant</span>
-        <span><i class="c"></i>DocType custom</span><span><i class="x"></i>Autre module</span>
+        <span><i></i>Link</span><span><i class="t"></i>Child table</span>
+        <span><i class="c"></i>Custom DocType</span><span><i class="x"></i>Other module</span>
       </div>
     </div>
   </main>
   <section class="detail">
-    <div class="head"><h1>Détail</h1></div>
-    <div class="body" id="detail"><p class="empty">Clique sur un DocType pour voir ses relations entrantes et sortantes.</p></div>
+    <div class="head"><h1>Details</h1></div>
+    <div class="body" id="detail"><p class="empty">Click a DocType to see its incoming and outgoing relations.</p></div>
   </section>
 </div>
 
@@ -159,7 +159,7 @@ const opt = {ext:false, hub:true, child:true};
 $('stats').textContent = `${NODES.length} DocTypes · ${EDGES.length} relations · ${modNames.length} modules`;
 
 /* ---------- sidebar ---------- */
-function modLabel(m){ return m===CUSTOM ? 'DocTypes custom' : m; }
+function modLabel(m){ return m===CUSTOM ? 'Custom DocTypes' : m; }
 function modCount(m){ return m===CUSTOM ? nCustom : mods[m].length; }
 function renderList(){
   const q = $('q').value.trim().toLowerCase();
@@ -231,7 +231,7 @@ function draw(){
   $('title').innerHTML = '';
   $('title').append(document.createTextNode(modLabel(cur)));
   const sp = document.createElement('span');
-  sp.textContent = `${nCore} DocTypes${v.ext.size?` · ${v.ext.size} voisins`:''} · ${links.length} relations`;
+  sp.textContent = `${nCore} DocTypes${v.ext.size?` · ${v.ext.size} neighbors`:''} · ${links.length} relations`;
   $('title').appendChild(sp);
 
   const R = Math.sqrt(nodes.length)*60;
@@ -324,19 +324,19 @@ function select(i){
   if(view) view.nAll.classed('sel', d=>d.i===i);
   focus(i);
   const box = $('detail'); box.textContent='';
-  if(i==null){ const p=document.createElement('p'); p.className='empty'; p.textContent='Clique sur un DocType pour voir ses relations entrantes et sortantes.'; box.appendChild(p); return; }
+  if(i==null){ const p=document.createElement('p'); p.className='empty'; p.textContent='Click a DocType to see its incoming and outgoing relations.'; box.appendChild(p); return; }
   const n = NODES[i];
   const h = document.createElement('h2'); h.textContent = n.id; box.appendChild(h);
   const tags = document.createElement('div'); tags.className='tags';
   const add=(t,c)=>{ const s=document.createElement('span'); s.className='tag'+(c?' '+c:''); s.textContent=t; tags.appendChild(s); };
-  add(n.m); if(n.fl&1) add('custom','c'); if(n.fl&2) add('table enfant','t'); if(n.fl&4) add('single');
-  if(n.fl&8) add('soumettable'); if(n.fl&16) add('virtuel');
-  add(`${n.nf} champs`); if(n.nc) add(`+${n.nc} champs custom`,'c');
+  add(n.m); if(n.fl&1) add('custom','c'); if(n.fl&2) add('child table','t'); if(n.fl&4) add('single');
+  if(n.fl&8) add('submittable'); if(n.fl&16) add('virtual');
+  add(`${n.nf} fields`); if(n.nc) add(`+${n.nc} custom fields`,'c');
   box.appendChild(tags);
   const self = EDGES.filter(e=>e.s===i && e.t===i);
-  if(self.length){ const p=document.createElement('p'); p.className='sub'; p.textContent='Auto-référence : '+self.map(e=>e.f.join(', ')).join(', '); box.appendChild(p); }
-  box.appendChild(relBlock('Pointe vers', OUT[i], true));
-  box.appendChild(relBlock('Référencé par', INN[i], false));
+  if(self.length){ const p=document.createElement('p'); p.className='sub'; p.textContent='Self-reference: '+self.map(e=>e.f.join(', ')).join(', '); box.appendChild(p); }
+  box.appendChild(relBlock('Points to', OUT[i], true));
+  box.appendChild(relBlock('Referenced by', INN[i], false));
 }
 
 function setModule(m, pick){
@@ -354,7 +354,7 @@ $('mmd').onclick = async ()=>{
   view.edges.forEach(e=>lines.push(`  ${nid.get(e.s)} ${e.k?'==>':'-->'}|${e.f[0]}| ${nid.get(e.t)}`));
   const text = lines.join('\n');
   const btn = $('mmd'); const old = btn.textContent;
-  try{ await navigator.clipboard.writeText(text); btn.textContent='Copié'; setTimeout(()=>btn.textContent=old,1500); }
+  try{ await navigator.clipboard.writeText(text); btn.textContent='Copied'; setTimeout(()=>btn.textContent=old,1500); }
   catch(_){
     const box=$('detail'); box.textContent='';
     const ta=document.createElement('textarea'); ta.className='out'; ta.value=text; ta.readOnly=true; box.appendChild(ta); ta.focus(); ta.select();

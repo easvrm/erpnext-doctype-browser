@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Extrait les relations entre DocTypes d'un dump SQL ERPNext/Frappe (MariaDB).
+"""Extract DocType relationships from an ERPNext/Frappe (MariaDB) SQL dump.
 
 Usage: python3 scripts/extract.py dump.sql.gz [data.json]
 
-Lit tabDocType, tabDocField, tabCustom Field, tabProperty Setter et produit
-data.json (nœuds + relations Link / Table / Table MultiSelect).
+Reads tabDocType, tabDocField, tabCustom Field and tabProperty Setter and
+writes data.json (nodes + Link / Table / Table MultiSelect relations).
 """
 import collections, gzip, json, re, sys
 
@@ -12,7 +12,7 @@ TABLES = ['tabDocType', 'tabDocField', 'tabCustom Field', 'tabProperty Setter']
 
 
 def read_tables(path):
-    """Ne garde du dump que les CREATE/INSERT des tables utiles."""
+    """Keep only the CREATE/INSERT statements of the tables we need."""
     opener = gzip.open if path.endswith('.gz') else open
     keep, out = False, []
     pat = re.compile(r'^(?:DROP TABLE IF EXISTS|CREATE TABLE|LOCK TABLES|INSERT INTO) `([^`]+)`')
@@ -122,6 +122,6 @@ if __name__ == '__main__':
     data, missing = build(raw)
     out = sys.argv[2] if len(sys.argv) > 2 else 'data.json'
     json.dump(data, open(out, 'w', encoding='utf8'), ensure_ascii=False, separators=(',', ':'))
-    print(f"{len(data['n'])} DocTypes, {len(data['e'])} relations, {data['d']} Dynamic Link ignorés -> {out}")
+    print(f"{len(data['n'])} DocTypes, {len(data['e'])} relations, {data['d']} Dynamic Links skipped -> {out}")
     if missing:
-        print('Cibles absentes de la base:', dict(missing))
+        print('Link targets missing from the database:', dict(missing))
