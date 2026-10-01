@@ -83,6 +83,10 @@ svg:active{cursor:grabbing}
 .rel button small{display:block;color:var(--muted);font-size:11px;word-break:break-word}
 .rel button:hover b{color:var(--accent)}
 .empty{color:var(--muted);line-height:1.5}
+.rel summary{cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.fld{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}
+.fld b{font-family:var(--mono);font-size:12px;font-weight:400;word-break:break-all}
+.fld small{color:var(--muted);font-size:11px;text-align:right;flex:none}
 textarea.out{width:100%;height:120px;font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
 @media (max-width:900px){
   body{overflow:auto}
@@ -112,6 +116,7 @@ textarea.out{width:100%;height:120px;font-family:var(--mono);font-size:11px;back
       <label class="chk" for="o-ext"><input type="checkbox" id="o-ext">Neighbors from other modules</label>
       <label class="chk" for="o-hub"><input type="checkbox" id="o-hub" checked>Hide hubs</label>
       <label class="chk" for="o-child"><input type="checkbox" id="o-child" checked>Child tables</label>
+      <button class="btn" id="back" type="button" hidden>Back to module</button>
       <button class="btn" id="fit" type="button">Fit view</button>
       <button class="btn" id="mmd" type="button">Copy as Mermaid</button>
     </div>
@@ -138,7 +143,7 @@ textarea.out{width:100%;height:120px;font-family:var(--mono);font-size:11px;back
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script>
 const D = __DATA__;
-const NODES = D.n.map((a,i)=>({i,id:a[0],m:a[1],fl:a[2],nf:a[3],nc:a[4]}));
+const NODES = D.n.map((a,i)=>({i,id:a[0],m:a[1],fl:a[2],nf:a[3],nc:a[4],fd:a[5]||[]}));
 const EDGES = D.e.map(a=>({s:a[0],t:a[1],k:a[2],c:a[3],f:a[4]}));
 const OUT = NODES.map(()=>[]), INN = NODES.map(()=>[]);
 EDGES.forEach(e=>{ if(e.s!==e.t){ OUT[e.s].push(e); INN[e.t].push(e); } });
@@ -154,6 +159,7 @@ const nCustom = NODES.filter(n=>n.fl&1).length;
 const $ = id => document.getElementById(id);
 let cur = modNames[0] && (mods['Selling'] ? 'Selling' : modNames[0]);
 let selected = null, sim = null;
+let fview = null; // {i, depth} when the neighborhood view is active
 const opt = {ext:false, hub:true, child:true};
 
 $('stats').textContent = `${NODES.length} DocTypes · ${EDGES.length} relations · ${modNames.length} modules`;
@@ -191,7 +197,24 @@ $('q').oninput = renderList;
 ['ext','hub','child'].forEach(k=>{ $('o-'+k).onchange = e=>{ opt[k]=e.target.checked; draw(); }; });
 
 /* ---------- view model ---------- */
+function neighborhood(){
+  const core = new Set([fview.i]); let frontier = [fview.i];
+  for(let d=0; d<fview.depth; d++){
+    const next = [];
+    frontier.forEach(i=>[...OUT[i],...INN[i]].forEach(e=>{
+      const o = e.s===i ? e.t : e.s;
+      if(core.has(o)) return;
+      if(!opt.child && (NODES[o].fl&2)) return;
+      if(opt.hub && isHub(o)) return;
+      core.add(o); next.push(o);
+    }));
+    frontier = next;
+  }
+  const edges = EDGES.filter(e=>e.s!==e.t && core.has(e.s) && core.has(e.t));
+  return {core, ids:core, ext:new Set(), edges, keep:core};
+}
 function visible(){
+  if(fview) return neighborhood();
   const core = new Set(cur===CUSTOM ? NODES.filter(n=>n.fl&1).map(n=>n.i) : mods[cur]);
   const keep = new Set();
   core.forEach(i=>{ if(opt.child || !(NODES[i].fl&2)) keep.add(i); });
@@ -229,7 +252,8 @@ function draw(){
   const links = v.edges.map(e=>({source:byI.get(e.s), target:byI.get(e.t), e}));
   const nCore = nodes.length - v.ext.size;
   $('title').innerHTML = '';
-  $('title').append(document.createTextNode(modLabel(cur)));
+  $('title').append(document.createTextNode(fview ? 'Focus: '+NODES[fview.i].id : modLabel(cur)));
+  $('back').hidden = !fview;
   const sp = document.createElement('span');
   sp.textContent = `${nCore} DocTypes${v.ext.size?` · ${v.ext.size} neighbors`:''} · ${links.length} relations`;
   $('title').appendChild(sp);
@@ -260,6 +284,7 @@ function draw(){
   nAll.append('text').attr('text-anchor','middle').attr('dy','0.33em').text(d=>d.n.id);
   nAll.append('title').text(d=>`${d.n.id} (${d.n.m})`);
   nAll.on('click', (ev,d)=>{ ev.stopPropagation(); select(d.i); })
+      .on('dblclick', (ev,d)=>{ ev.stopPropagation(); fview={i:d.i, depth:1}; selected=d.i; draw(); select(d.i); })
       .on('mouseenter', (ev,d)=>focus(d.i)).on('mouseleave', ()=>focus(selected));
   nAll.call(d3.drag()
     .on('start',(ev,d)=>{ d.fx=d.x; d.fy=d.y; })
@@ -303,6 +328,7 @@ function fit(){
   svg.call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(k));
 }
 $('fit').onclick = ()=>view && fit();
+$('back').onclick = ()=>{ fview = null; draw(); select(selected); };
 window.addEventListener('resize', ()=>{ if(view) fit(); });
 
 /* ---------- detail panel ---------- */
@@ -335,12 +361,31 @@ function select(i){
   box.appendChild(tags);
   const self = EDGES.filter(e=>e.s===i && e.t===i);
   if(self.length){ const p=document.createElement('p'); p.className='sub'; p.textContent='Self-reference: '+self.map(e=>e.f.join(', ')).join(', '); box.appendChild(p); }
+  const act = document.createElement('div'); act.className='tags';
+  [1,2].forEach(dp=>{
+    const b = document.createElement('button'); b.type='button'; b.className='btn';
+    b.textContent = `Focus (${dp} level${dp>1?'s':''})`;
+    b.onclick = ()=>{ fview = {i, depth:dp}; draw(); select(i); };
+    act.appendChild(b);
+  });
+  box.appendChild(act);
   box.appendChild(relBlock('Points to', OUT[i], true));
   box.appendChild(relBlock('Referenced by', INN[i], false));
+  if(n.fd.length){
+    const det = document.createElement('details'); det.className='rel';
+    const sm = document.createElement('summary'); sm.textContent = `Fields (${n.fd.length})`; det.appendChild(sm);
+    n.fd.forEach(f=>{
+      const r = document.createElement('div'); r.className='fld';
+      const a = document.createElement('b'); a.textContent = f[0]+(f[2]?' *':'');
+      const c = document.createElement('small'); c.textContent = f[1]+(f[3]?' · custom':'');
+      r.append(a,c); det.appendChild(r);
+    });
+    box.appendChild(det);
+  }
 }
 
 function setModule(m, pick){
-  cur = m; selected = pick==null ? null : pick;
+  fview = null; cur = m; selected = pick==null ? null : pick;
   if(pick!=null){ const nm = NODES[pick].m; if(m!==CUSTOM && nm!==m) cur = nm; }
   draw(); select(selected);
   if(pick!=null){ const d = view.nodes.find(x=>x.i===pick); if(d){ const el=$('svg'); svg.call(zoom.translateTo, d.x, d.y); } }

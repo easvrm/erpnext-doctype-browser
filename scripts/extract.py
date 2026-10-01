@@ -87,16 +87,22 @@ def build(raw):
     nodes = {n: dict(id=n, module=d['module'], flags=(1 if flag(d['custom']) else 0) | (2 if flag(d['istable']) else 0)
                      | (4 if flag(d['issingle']) else 0) | (8 if flag(d['is_submittable']) else 0)
                      | (16 if flag(d.get('is_virtual')) else 0), fields=0, custom=0) for n, d in dts.items()}
-    fields = [dict(p=f['parent'], fn=f['fieldname'], t=f['fieldtype'], o=f['options'], c=False)
+    fields = [dict(p=f['parent'], fn=f['fieldname'], t=f['fieldtype'], o=f['options'], c=False,
+                   r=1 if f.get('reqd') == '1' else 0, i=int(f.get('idx') or 0))
               for f in raw['tabDocField'] if f['parent'] in dts and f['parenttype'] == 'DocType']
-    fields += [dict(p=f['dt'], fn=f['fieldname'], t=f['fieldtype'], o=f['options'], c=True)
+    fields += [dict(p=f['dt'], fn=f['fieldname'], t=f['fieldtype'], o=f['options'], c=True,
+                    r=1 if f.get('reqd') == '1' else 0, i=10**6 + int(f.get('idx') or 0))
                for f in raw['tabCustom Field'] if f['dt'] in dts]
+    LAYOUT = {'Section Break', 'Column Break', 'Tab Break', 'HTML', 'Fold', 'Heading'}
+    flist = collections.defaultdict(list)
     ps = {(p['doc_type'], p['field_name']): p['value'] for p in raw['tabProperty Setter']
           if p['property'] == 'options' and p['doctype_or_field'] == 'DocField'}
     edges, dyn, missing = collections.OrderedDict(), 0, collections.Counter()
     for f in fields:
         f['o'] = ps.get((f['p'], f['fn']), f['o'])
         nodes[f['p']]['custom' if f['c'] else 'fields'] += 1
+        if f['t'] not in LAYOUT and f['fn']:
+            flist[f['p']].append((f['i'], [f['fn'], f['t'], f['r'], 1 if f['c'] else 0]))
         if f['t'] in ('Link', 'Table', 'Table MultiSelect') and f['o']:
             o = f['o'].strip()
             if o not in dts:
@@ -109,7 +115,8 @@ def build(raw):
         elif f['t'] == 'Dynamic Link':
             dyn += 1
     idx = {n: i for i, n in enumerate(nodes)}
-    N = [[n['id'], n['module'], n['flags'], n['fields'], n['custom']] for n in nodes.values()]
+    N = [[n['id'], n['module'], n['flags'], n['fields'], n['custom'], [x for _, x in sorted(flist[n['id']], key=lambda y: y[0])]]
+         for n in nodes.values()]
     E = [[idx[e['s']], idx[e['t']], e['k'], 1 if e['c'] else 0, e['f']] for e in edges.values()]
     return {'n': N, 'e': E, 'd': dyn}, missing
 

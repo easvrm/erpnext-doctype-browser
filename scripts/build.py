@@ -3,7 +3,9 @@
 import pathlib, sys
 root = pathlib.Path(__file__).resolve().parent.parent
 data = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'data.json').read_text(encoding='utf8')
-html = (root / 'src' / 'template.html').read_text(encoding='utf8').replace('__DATA__', data)
+body = (root / 'src' / 'template.html').read_text(encoding='utf8').replace('__DATA__', data)
+html = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + body)
 out = root / 'docs' / 'index.html'
 out.parent.mkdir(exist_ok=True)
 out.write_text(html, encoding='utf8')
